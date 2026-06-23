@@ -1,6 +1,8 @@
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 const FROM_EMAIL = "hello@panigrahna.com";
 const FROM_NAME = "Panigrahna";
+const LOGO_URL =
+  "https://res.cloudinary.com/dvsrgdyi7/image/upload/v1782190130/panigrahna-logo.svg";
 
 function getApiKey() {
   const key = process.env.BREVO_API_KEY;
@@ -68,6 +70,7 @@ function userAcknowledgement({ coupleName, eventDateFrom, eventDateTo, location 
         <table width="560" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:4px;overflow:hidden;">
           <tr>
             <td style="background-color:#3d2b1a;padding:36px 40px 30px;text-align:center;">
+              <img src="${LOGO_URL}" alt="Panigrahna" style="display:block;margin:0 auto 8px;max-width:80px;height:auto;border:none;" />
               <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:400;letter-spacing:2px;color:#f5f0e8;text-transform:uppercase;">Panigrahna</h1>
               <p style="margin:6px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:14px;font-style:italic;color:#c97c2e;">Wedding &amp; Editorial Photography</p>
             </td>
@@ -161,7 +164,8 @@ function adminNotification(formData) {
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:4px;overflow:hidden;">
           <tr>
-            <td style="background-color:#3d2b1a;padding:28px 32px 24px;">
+            <td style="background-color:#3d2b1a;padding:28px 32px 24px;text-align:center;">
+              <img src="${LOGO_URL}" alt="Panigrahna" style="display:block;margin:0 auto 8px;max-width:64px;height:auto;border:none;" />
               <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:400;color:#f5f0e8;letter-spacing:1px;">New Inquiry Received</h1>
               <p style="margin:4px 0 0;font-size:13px;color:#c97c2e;">${coupleName}</p>
             </td>
@@ -227,4 +231,4 @@ async function sendAdminNotification(inquiry) {
   });
 }
 
-module.exports = { sendUserAcknowledgment, sendAdminNotification };
+module.exports = { sendUserAcknowledgment, sendAdminNotification, userAcknowledgement, adminNotification };

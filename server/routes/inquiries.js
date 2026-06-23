@@ -1,6 +1,6 @@
 const express = require("express");
 const { Inquiry } = require("../db");
-const { sendUserAcknowledgment, sendAdminNotification } = require("../mailer");
+const { sendUserAcknowledgment, sendAdminNotification, userAcknowledgement, adminNotification } = require("../mailer");
 
 const router = express.Router();
 
@@ -86,6 +86,41 @@ router.post("/", async (req, res) => {
       success: false,
       message: "Something went wrong. Please try again.",
     });
+  }
+});
+
+/* ── GET /api/inquiries/email-preview/:type ── */
+router.get("/email-preview/:type", (req, res) => {
+  const defaults = {
+    coupleName: "Priya & Arjun",
+    email: "priya.arjun@example.com",
+    phone: "+91 98765 43210",
+    eventDateFrom: new Date("2026-12-15"),
+    eventDateTo: new Date("2026-12-17"),
+    eventLocation: "The Taj Mahal Palace, Mumbai",
+    location: "Mumbai, India",
+    guestCount: "200–250",
+    referral: "Instagram",
+    moodboard: "https://example.com/moodboard",
+    eventDetails: "An intimate weekend celebration blending traditional South Indian ceremonies with a modern reception.",
+  };
+
+  const data = { ...defaults, ...req.query };
+
+  try {
+    let html;
+    if (req.params.type === "user") {
+      html = userAcknowledgement(data);
+    } else if (req.params.type === "admin") {
+      html = adminNotification(data);
+    } else {
+      return res.status(400).json({ success: false, message: 'Type must be "user" or "admin"' });
+    }
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
+  } catch (err) {
+    res.status(500).send(`<pre>Error rendering template: ${err.message}</pre>`);
   }
 });
 
