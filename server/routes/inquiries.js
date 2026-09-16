@@ -65,7 +65,44 @@ router.post("/", async (req, res) => {
 
     const inquiry = await Inquiry.create(inquiryData);
 
-    /* Fire-and-forget emails — don't block the response */
+    /* Push lead to CRM */
+    const pushToCRM = async () => {
+      try {
+        const crmUrl = process.env.CRM_API_URL || "https://rudhramgroup.com/api/leads/public/inquiry";
+
+        // Map panigrahna inquiry to CRM lead format
+        const leadPayload = {
+          name: inquiryData.coupleName,
+          email: inquiryData.email,
+          phone: inquiryData.phone || "",
+          brand: "panigrahna",
+          source: "website",
+          notes: [
+            { text: `Event Dates: ${inquiryData.eventDateFrom} to ${inquiryData.eventDateTo}` },
+            { text: `Venue/Location: ${inquiryData.eventLocation || ""} ${inquiryData.location || ""}` },
+            { text: `Guest Count: ${inquiryData.guestCount || ""}` },
+            { text: `Details: ${inquiryData.eventDetails || ""}` }
+          ]
+        };
+
+        const response = await fetch(crmUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(leadPayload)
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error(`CRM API Error (${response.status}):`, errText);
+        } else {
+          console.log("Lead successfully pushed to CRM.");
+        }
+      } catch (err) {
+        console.error("Failed to push lead to CRM:", err.message);
+      }
+    };
+
+    /* Fire-and-forget emails and CRM push — don't block the response */
     Promise.all([
       sendUserAcknowledgment(inquiry).catch((err) =>
         console.error("Failed to send user acknowledgment:", err.message)
@@ -73,6 +110,7 @@ router.post("/", async (req, res) => {
       sendAdminNotification(inquiry).catch((err) =>
         console.error("Failed to send admin notification:", err.message)
       ),
+      pushToCRM()
     ]);
 
     return res.status(201).json({

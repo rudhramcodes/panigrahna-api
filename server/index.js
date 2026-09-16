@@ -8,10 +8,37 @@ const inquiriesRouter = require("./routes/inquiries");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+/* ── CORS Setup ── */
+const defaultOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://panigrahna.com",
+  "https://www.panigrahna.com",
+];
+
+const rawOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean)
+  : defaultOrigins;
+
+const allowedOrigins = [
+  ...new Set(
+    rawOrigins.flatMap((origin) => {
+      const clean = origin.replace(/\/+$/, "");
+      if (!/^https?:\/\//i.test(clean)) {
+        if (clean.startsWith("localhost") || clean.startsWith("127.0.0.1")) {
+          return [`http://${clean}`, `https://${clean}`];
+        }
+        return [`https://${clean}`, `http://${clean}`, `https://www.${clean}`];
+      }
+      return [clean];
+    })
+  ),
+];
+
 /* ── Middleware ── */
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+    origin: allowedOrigins,
     methods: ["POST", "GET", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   })

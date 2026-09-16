@@ -1,48 +1,36 @@
-const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
-const FROM_EMAIL = "hello@panigrahna.com";
+const nodemailer = require("nodemailer");
+
+const FROM_EMAIL = "panigrahna@rudhramenterprises.com";
 const FROM_NAME = "Panigrahna";
 const LOGO_URL =
   "https://res.cloudinary.com/dvsrgdyi7/image/upload/v1782190130/panigrahna-logo.svg";
 
-function getApiKey() {
-  const key = process.env.BREVO_API_KEY;
-  if (!key) {
-    console.error("BREVO_API_KEY environment variable is not set");
+// Zoho SMTP configuration
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.zoho.in",
+  port: process.env.SMTP_PORT || 465,
+  secure: true, // true for 465, false for other ports
+  auth: {
+    user: process.env.SMTP_USER || "panigrahna@rudhramenterprises.com",
+    pass: process.env.SMTP_PASS || "FalconZoho@2026",
+  },
+});
+
+async function sendEmail({ to, subject, htmlContent, replyTo }) {
+  try {
+    const info = await transporter.sendMail({
+      from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+      to,
+      replyTo: replyTo || FROM_EMAIL,
+      subject,
+      html: htmlContent,
+    });
+    console.log("Message sent: %s", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending email:", error);
+    throw error;
   }
-  return key;
-}
-
-async function sendBrevoEmail({ to, toName, subject, htmlContent, replyTo }) {
-  const apiKey = getApiKey();
-  if (!apiKey) return;
-
-  const payload = {
-    sender: { name: FROM_NAME, email: FROM_EMAIL },
-    to: [{ email: to, name: toName || "" }],
-    subject,
-    htmlContent,
-  };
-
-  if (replyTo) {
-    payload.replyTo = { email: replyTo, name: FROM_NAME };
-  }
-
-  const res = await fetch(BREVO_API_URL, {
-    method: "POST",
-    headers: {
-      "api-key": apiKey,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const errBody = await res.text();
-    throw new Error(`Brevo API error ${res.status}: ${errBody}`);
-  }
-
-  return res.json();
 }
 
 function pad(n) {
@@ -101,7 +89,7 @@ function userAcknowledgement({ coupleName, eventDateFrom, eventDateTo, location 
                 <tr>
                   <td style="padding:0 20px 0 0;font-size:14px;color:#5a4a3a;font-family:Arial,sans-serif;">✉️</td>
                   <td style="font-size:15px;color:#c97c2e;font-family:Arial,sans-serif;">
-                    <a href="mailto:hello@panigrahna.com" style="color:#c97c2e;text-decoration:none;">hello@panigrahna.com</a>
+                    <a href="mailto:panigrahna@rudhramenterprises.com" style="color:#c97c2e;text-decoration:none;">panigrahna@rudhramenterprises.com</a>
                   </td>
                 </tr>
               </table>
@@ -210,9 +198,8 @@ async function sendUserAcknowledgment(inquiry) {
   const { coupleName, email, eventDateFrom, eventDateTo, location } = inquiry;
   const htmlContent = userAcknowledgement({ coupleName, eventDateFrom, eventDateTo, location });
 
-  return sendBrevoEmail({
+  return sendEmail({
     to: email,
-    toName: coupleName,
     subject: "Thank You \u2014 Panigrahna Has Received Your Inquiry",
     htmlContent,
     replyTo: process.env.ADMIN_EMAIL || FROM_EMAIL,
@@ -223,9 +210,8 @@ async function sendAdminNotification(inquiry) {
   const adminEmail = process.env.ADMIN_EMAIL || FROM_EMAIL;
   const htmlContent = adminNotification(inquiry);
 
-  return sendBrevoEmail({
+  return sendEmail({
     to: adminEmail,
-    toName: "Admin",
     subject: `New Inquiry Received \u2014 ${inquiry.coupleName}`,
     htmlContent,
   });
