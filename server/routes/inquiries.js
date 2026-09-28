@@ -41,6 +41,39 @@ function validateInquiry(body) {
   return Object.keys(errors).length > 0 ? errors : null;
 }
 
+/* ── Format phone number specifically for CRM validation rules ── */
+function formatPhoneForCRM(phone) {
+  if (!phone || typeof phone !== "string") return "";
+  const trimmed = phone.trim();
+  if (!trimmed) return "";
+
+  // If already starts with '+', ensure there is a space after the country code (1 to 3 digits)
+  if (trimmed.startsWith("+")) {
+    const match = trimmed.match(/^\+(\d{1,3})\s*(.+)$/);
+    if (match) {
+      const code = match[1];
+      const restDigits = match[2].replace(/[^\d]/g, "");
+      if (restDigits.length >= 10) {
+        return `+${code} ${restDigits}`;
+      }
+    }
+  }
+
+  // Pure digits or local number
+  const onlyDigits = trimmed.replace(/[^\d]/g, "");
+  if (onlyDigits.length === 10) {
+    return `+91 ${onlyDigits}`;
+  }
+  if (onlyDigits.length === 12 && onlyDigits.startsWith("91")) {
+    return `+91 ${onlyDigits.slice(2)}`;
+  }
+  if (onlyDigits.length >= 10) {
+    return `+91 ${onlyDigits.slice(-10)}`;
+  }
+
+  return "";
+}
+
 /* ── POST /api/inquiries ── */
 router.post("/", async (req, res) => {
   try {
@@ -70,19 +103,37 @@ router.post("/", async (req, res) => {
       try {
         const crmUrl = process.env.CRM_API_URL || "https://rudhramgroup.com/api/leads/public/inquiry";
 
+        const notes = [];
+        if (inquiryData.eventDateFrom) {
+          const fromStr = new Date(inquiryData.eventDateFrom).toDateString();
+          const toStr = inquiryData.eventDateTo ? ` to ${new Date(inquiryData.eventDateTo).toDateString()}` : "";
+          notes.push({ text: `Event Dates: ${fromStr}${toStr}` });
+        }
+        const fullLocation = [inquiryData.eventLocation, inquiryData.location].filter(Boolean).join(", ");
+        if (fullLocation) {
+          notes.push({ text: `Venue/Location: ${fullLocation}` });
+        }
+        if (inquiryData.guestCount) {
+          notes.push({ text: `Guest Count: ${inquiryData.guestCount}` });
+        }
+        if (inquiryData.eventDetails) {
+          notes.push({ text: `Details: ${inquiryData.eventDetails}` });
+        }
+        if (inquiryData.referral) {
+          notes.push({ text: `Referral: ${inquiryData.referral}` });
+        }
+        if (inquiryData.moodboard) {
+          notes.push({ text: `Moodboard: ${inquiryData.moodboard}` });
+        }
+
         // Map panigrahna inquiry to CRM lead format
         const leadPayload = {
           name: inquiryData.coupleName,
           email: inquiryData.email,
-          phone: inquiryData.phone || "",
+          phone: formatPhoneForCRM(inquiryData.phone),
           brand: "panigrahna",
           source: "website",
-          notes: [
-            { text: `Event Dates: ${inquiryData.eventDateFrom} to ${inquiryData.eventDateTo}` },
-            { text: `Venue/Location: ${inquiryData.eventLocation || ""} ${inquiryData.location || ""}` },
-            { text: `Guest Count: ${inquiryData.guestCount || ""}` },
-            { text: `Details: ${inquiryData.eventDetails || ""}` }
-          ]
+          notes,
         };
 
         const response = await fetch(crmUrl, {
@@ -95,7 +146,8 @@ router.post("/", async (req, res) => {
           const errText = await response.text();
           console.error(`CRM API Error (${response.status}):`, errText);
         } else {
-          console.log("Lead successfully pushed to CRM.");
+          const resData = await response.json().catch(() => null);
+          console.log("Lead successfully pushed to CRM:", resData?.data?.lead?.id || "OK");
         }
       } catch (err) {
         console.error("Failed to push lead to CRM:", err.message);
