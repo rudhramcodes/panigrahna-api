@@ -16,21 +16,26 @@ const defaultOrigins = [
   "https://www.panigrahna.com",
 ];
 
-const rawOrigins = process.env.CORS_ORIGIN
+const envOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean)
-  : defaultOrigins;
+  : [];
+
+const configuredOrigins = [...defaultOrigins, ...envOrigins];
 
 const allowedOrigins = [
   ...new Set(
-    rawOrigins.flatMap((origin) => {
+    configuredOrigins.flatMap((origin) => {
       const clean = origin.replace(/\/+$/, "");
-      if (!/^https?:\/\//i.test(clean)) {
-        if (clean.startsWith("localhost") || clean.startsWith("127.0.0.1")) {
-          return [`http://${clean}`, `https://${clean}`];
-        }
-        return [`https://${clean}`, `http://${clean}`, `https://www.${clean}`];
+      const res = [clean];
+      if (/^https?:\/\/(www\.)?panigrahna\.com$/i.test(clean)) {
+        res.push(
+          "https://panigrahna.com",
+          "https://www.panigrahna.com",
+          "http://panigrahna.com",
+          "http://www.panigrahna.com"
+        );
       }
-      return [clean];
+      return res;
     })
   ),
 ];
@@ -38,7 +43,20 @@ const allowedOrigins = [
 /* ── Middleware ── */
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+        /^https?:\/\/(www\.)?panigrahna\.com$/.test(origin);
+
+      if (isAllowed) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Not allowed by CORS: ${origin}`));
+    },
     methods: ["POST", "GET", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   })
